@@ -1,13 +1,10 @@
 #[cfg(feature = "python")]
 use pyo3::prelude::*;
 
-use std::ffi::{c_char, CStr, CString};
+#[cfg(feature = "node")]
+use neon::{types::buffer::TypedArray, prelude::*};
 
-#[repr(C)]
-pub struct ByteBuffer {
-    data: *mut u8,
-    len: usize,
-}
+use std::ffi::{c_char, CStr, CString};
 
 struct BinaryEncoder;
 
@@ -48,6 +45,34 @@ fn azure_data_cosmos_shared(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(python_decode, m)?)?;
 
     Ok(())
+}
+
+#[cfg(feature = "node")]
+fn node_encode(mut cx: FunctionContext) -> JsResult<JsUint8Array> {
+    let input = cx.argument::<JsString>(0)?.value(&mut cx);
+    let result = BinaryEncoder::encode(&input);
+    JsUint8Array::from_slice(&mut cx, &result)
+}
+
+#[cfg(feature = "node")]
+fn node_decode(mut cx: FunctionContext) -> JsResult<JsString> {
+    let input = cx.argument::<JsUint8Array>(0)?.as_slice(&cx).to_vec();
+    let result = BinaryEncoder::decode(&input);
+    Ok(cx.string(result))
+}
+
+#[cfg(feature = "node")]
+#[neon::main]
+fn main(mut cx: ModuleContext) -> NeonResult<()> {
+    cx.export_function("node_encode", node_encode)?;
+    cx.export_function("node_decode", node_decode)?;
+    Ok(())
+}
+
+#[repr(C)]
+pub struct ByteBuffer {
+    data: *mut u8,
+    len: usize,
 }
 
 #[no_mangle]

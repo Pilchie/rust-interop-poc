@@ -4,6 +4,12 @@
         "CFLAGS",
         "LDFLAGS",
         "libazure",
+        "postcargo",
+        "postcross",
+        "pyfunction",
+        "pymodule",
+        "repr",
+        "Roundtripped",
         "SRCDIR"
     ]
 }

@@ -1,2 +1,7 @@
 /target
 /.venv/
+**/node_modules
+npm-debug.log
+cargo.log
+cross.log
+index.node

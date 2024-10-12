@@ -2,10 +2,12 @@
 name = "azure_data_cosmos_shared"
 version = "0.1.0"
 edition = "2021"
+exclude = ["index.node"]
 
 [dependencies]
 libc = "0.2.159"
 pyo3 = { version = "0.22", optional = true }
+neon = { version = "1", optional = true }
 
 [build-dependencies]
 cbindgen = "0.27"
@@ -15,3 +17,4 @@ crate-type = ["cdylib", "staticlib", "rlib"]
 
 [features]
 python = ["pyo3/extension-module", "dep:pyo3"]
+node = ["dep:neon"]
