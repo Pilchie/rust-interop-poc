@@ -6,5 +6,16 @@ package main
 import "C"
 
 func main() {
-    println(C.add(2, 2))
+	input := "{ \"name\": \"Kevin\" }"
+
+	encoded := C.binary_encode(C.CString(input))
+	defer C.free_byte_buffer(encoded)
+
+	orig := C.binary_decode(&encoded)
+	defer C.free_string(orig)
+
+	origGo := C.GoString(orig)
+
+	println("Roundtripped: '", input, "' to get '", origGo, "'.")
+	println("It was ", encoded.len, "bytes in encoded form")
 }
