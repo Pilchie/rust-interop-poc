@@ -5,9 +5,13 @@ edition = "2021"
 
 [dependencies]
 libc = "0.2.159"
+pyo3 = { version = "0.22", optional = true }
 
 [build-dependencies]
 cbindgen = "0.27"
 
 [lib]
 crate-type = ["cdylib", "staticlib", "rlib"]
+
+[features]
+python = ["pyo3/extension-module", "dep:pyo3"]

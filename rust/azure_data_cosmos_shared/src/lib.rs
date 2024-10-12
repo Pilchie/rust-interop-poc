@@ -1,3 +1,6 @@
+#[cfg(feature = "python")]
+use pyo3::prelude::*;
+
 use std::ffi::{c_char, CStr, CString};
 
 #[repr(C)]
@@ -6,14 +9,51 @@ pub struct ByteBuffer {
     len: usize,
 }
 
+struct BinaryEncoder;
+
+impl BinaryEncoder {
+    fn encode(input: &str) -> Vec<u8> {
+        let mut result = Vec::new();
+        for b in input.as_bytes() {
+            result.push(*b);
+        }
+        result
+    }
+
+    fn decode(input: &[u8]) -> String {
+        let mut result = String::new();
+        for b in input {
+            result.push(*b as char);
+        }
+        result
+    }
+}
+
+#[cfg(feature = "python")]
+#[pyfunction]
+pub fn python_encode(input: &str) -> Vec<u8> {
+    BinaryEncoder::encode(input)
+}
+
+#[cfg(feature = "python")]
+#[pyfunction]
+pub fn python_decode(input: Vec<u8>) -> String {
+    BinaryEncoder::decode(&input)
+}
+
+#[cfg(feature = "python")]
+#[pymodule]
+fn azure_data_cosmos_shared(m: &Bound<'_, PyModule>) -> PyResult<()> {
+    m.add_function(wrap_pyfunction!(python_encode, m)?)?;
+    m.add_function(wrap_pyfunction!(python_decode, m)?)?;
+
+    Ok(())
+}
+
 #[no_mangle]
 pub extern "C" fn binary_encode(ptr: *const c_char) -> ByteBuffer {
     let input = unsafe { CStr::from_ptr(ptr) }.to_str().unwrap();
-    let mut result = Vec::new();
-    for b in input.as_bytes() {
-        result.push(*b);
-    }
-
+    let mut result = BinaryEncoder::encode(input);
     let len = result.len();
     let data = result.as_mut_ptr();
     std::mem::forget(result); // so that it is not destructed at the end of the scope
@@ -22,7 +62,8 @@ pub extern "C" fn binary_encode(ptr: *const c_char) -> ByteBuffer {
 
 #[no_mangle]
 pub extern "C" fn binary_decode(buffer: &ByteBuffer) -> *const c_char {
-    let s = unsafe { std::slice::from_raw_parts(buffer.data, buffer.len) };
+    let bytes = unsafe { std::slice::from_raw_parts(buffer.data, buffer.len) };
+    let s = BinaryEncoder::decode(bytes);
     let c_str = CString::new(s).unwrap();
     c_str.into_raw()
 }
@@ -48,37 +89,25 @@ mod tests {
 
     #[test]
     fn encode_works() {
-        let s = "something\0";
-        let result = binary_encode(s.as_ptr());
-
-        // Adding 1 for the null terminator
-        assert_eq!(s.len(), result.len + 1);
-        assert_eq!('s' as u8, unsafe { *result.data });
-        assert_eq!('m' as u8, unsafe { *result.data.offset(2) });
-        unsafe { free_byte_buffer(result) };
+        let input = "something";
+        let result = BinaryEncoder::encode(input);
+        assert_eq!(input.len(), result.len());
+        assert_eq!('s' as u8, result[0]);
+        assert_eq!('m' as u8, result[2]);
     }
 
     #[test]
     fn decode_works() {
-        let mut slice = ['s' as u8, 'o' as u8, 'm' as u8];
-        let buffer = ByteBuffer {
-            data: slice.as_mut_ptr() as *mut u8,
-            len: 3,
-        };
-        let result = binary_decode(&buffer);
-        let c_str = unsafe { CStr::from_ptr(result) };
-        assert_eq!("som", c_str.to_str().unwrap());
-        unsafe { free_string(result) };
+        let slice = ['s' as u8, 'o' as u8, 'm' as u8];
+        let result = BinaryEncoder::decode(&slice);
+        assert_eq!("som", result);
     }
 
     #[test]
     fn round_trip_works() {
-        let s = "something\0";
-        let result = binary_encode(s.as_ptr());
-        let decoded = binary_decode(&result);
-        let c_str = unsafe { CStr::from_ptr(decoded) };
-        assert_eq!(&s[0..s.len() - 1], c_str.to_str().unwrap());
-        unsafe { free_string(decoded) };
-        unsafe { free_byte_buffer(result) };
+        let orig = "something";
+        let result = BinaryEncoder::encode(orig);
+        let decoded = BinaryEncoder::decode(&result);
+        assert_eq!(orig, decoded);
     }
 }

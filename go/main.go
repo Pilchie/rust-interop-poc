@@ -16,6 +16,5 @@ func main() {
 
 	origGo := C.GoString(orig)
 
-	println("Roundtripped: '", input, "' to get '", origGo, "'.")
-	println("It was ", encoded.len, "bytes in encoded form")
+	println("Roundtripped: '", input, "' to get '", origGo, "'. It was", encoded.len, "bytes when encoded.")
 }
